@@ -238,6 +238,46 @@ async function exportResults(format) {
         downloadJson(lastResults);
     } else if (format === 'csv') {
         downloadCsv(lastResults);
+    } else if (format === 'pdf') {
+        downloadPdf(lastResults);
+    }
+}
+
+async function downloadPdf(data) {
+    const btn = document.querySelector('button[onclick="exportResults(\'pdf\')"]');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/export-pdf`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('PDF generation failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `threads-report-${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error) {
+        console.error('PDF Export error:', error);
+        alert('Не удалось скачать PDF: ' + error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
     }
 }
 

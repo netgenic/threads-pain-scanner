@@ -20,7 +20,7 @@ class MediaType(str, Enum):
 class SearchRequest(BaseModel):
     """Request model for Threads search."""
     keywords: str = Field(..., description="Keywords to search for")
-    search_type: SearchType = Field(default=SearchType.RECENT, description="TOP or RECENT")
+    search_type: SearchType = Field(default=SearchType.TOP, description="TOP or RECENT")
     media_type: Optional[MediaType] = Field(default=MediaType.TEXT, description="Type of media")
     limit: int = Field(default=25, ge=1, le=100, description="Number of results")
     since: Optional[datetime] = Field(default=None, description="Start date")
@@ -37,6 +37,7 @@ class ThreadsPost(BaseModel):
     media_type: str
     has_replies: bool = False
     is_reply: bool = False
+    replies: list['ThreadsPost'] = []
 
 
 class AnalysisResult(BaseModel):

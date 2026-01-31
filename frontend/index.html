@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app">
         <!-- Header -->
@@ -29,24 +31,19 @@
                 <form id="search-form">
                     <div class="form-group">
                         <label for="keywords">Ключевые слова</label>
-                        <input 
-                            type="text" 
-                            id="keywords" 
-                            name="keywords"
-                            placeholder="Например: продуктивность, тайм-менеджмент, выгорание..."
-                            required
-                        >
+                        <input type="text" id="keywords" name="keywords"
+                            placeholder="Например: продуктивность, тайм-менеджмент, выгорание..." required>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="search_type">Сортировка</label>
                             <select id="search_type" name="search_type">
+                                <option value="TOP" selected>Популярные</option>
                                 <option value="RECENT">Свежие</option>
-                                <option value="TOP">Популярные</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="limit">Количество</label>
                             <select id="limit" name="limit">
@@ -57,7 +54,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-primary" id="search-btn">
                         <span class="btn-text">🔍 Найти и проанализировать</span>
                         <span class="btn-loader" hidden>⏳ Анализирую...</span>
@@ -98,13 +95,13 @@
                         <h3>😤 Боли и проблемы</h3>
                         <ul id="pains-list" class="analysis-list"></ul>
                     </div>
-                    
+
                     <!-- Needs -->
                     <div class="analysis-card glass-card">
                         <h3>🎯 Потребности</h3>
                         <ul id="needs-list" class="analysis-list"></ul>
                     </div>
-                    
+
                     <!-- Ideas -->
                     <div class="analysis-card glass-card full-width">
                         <h3>💡 Идеи для приложений</h3>
@@ -125,6 +122,7 @@
                         <div class="export-buttons">
                             <button class="btn btn-small" onclick="exportResults('json')">📥 JSON</button>
                             <button class="btn btn-small" onclick="exportResults('csv')">📥 CSV</button>
+                            <button class="btn btn-small" onclick="exportResults('pdf')">📥 PDF</button>
                         </div>
                     </div>
                     <div id="posts-list" class="posts-list"></div>
@@ -147,4 +145,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

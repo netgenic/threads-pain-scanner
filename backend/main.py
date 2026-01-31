@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from dotenv import load_dotenv
 
 from models import (
@@ -137,6 +137,86 @@ async def export_results(format: str, query: str = ""):
         return JSONResponse(content={"message": "CSV export coming soon"})
     else:
         raise HTTPException(status_code=400, detail="Format must be 'json' or 'csv'")
+
+
+@app.post("/api/export-pdf")
+async def export_pdf(data: SearchResponse):
+    """Generate and return a PDF report."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from io import BytesIO
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    
+    # Register Cyrillic Font (Arial)
+    font_name = 'Helvetica' # Fallback
+    try:
+        # Try standard Windows path
+        pdfmetrics.registerFont(TTFont('Arial', 'C:\\Windows\\Fonts\\arial.ttf'))
+        font_name = 'Arial'
+    except Exception:
+        pass
+
+    styles = getSampleStyleSheet()
+    
+    # Update styles to use the font
+    styles['Normal'].fontName = font_name
+    styles['Heading1'].fontName = font_name
+    styles['Heading2'].fontName = font_name
+    styles['Title'].fontName = font_name
+    
+    story = []
+
+    # Title
+    story.append(Paragraph("Threads Pain Scanner Report", styles['Title']))
+    story.append(Spacer(1, 12))
+    
+    # Query Info
+    story.append(Paragraph(f"Query: {data.query}", styles['Normal']))
+    story.append(Paragraph(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"Total Posts: {data.total_posts}", styles['Normal']))
+    story.append(Spacer(1, 24))
+
+    if data.analysis:
+        # Pains
+        story.append(Paragraph("Pains & Problems", styles['Heading2']))
+        for pain in data.analysis.pains:
+            story.append(Paragraph(f"• {pain}", styles['Normal']))
+        story.append(Spacer(1, 12))
+
+        # Needs
+        story.append(Paragraph("User Needs", styles['Heading2']))
+        for need in data.analysis.needs:
+            story.append(Paragraph(f"• {need}", styles['Normal']))
+        story.append(Spacer(1, 12))
+
+        # Ideas
+        story.append(Paragraph("App Ideas", styles['Heading2']))
+        for idea in data.analysis.app_ideas:
+            story.append(Paragraph(f"• {idea}", styles['Normal']))
+        story.append(Spacer(1, 24))
+
+    # Top Posts
+    story.append(Paragraph("Top Posts", styles['Heading2']))
+    for i, post in enumerate(data.posts[:10], 1):
+        story.append(Paragraph(f"<b>@{post.username}</b> ({post.timestamp.strftime('%Y-%m-%d')})", styles['Normal']))
+        story.append(Paragraph(post.text, styles['Normal']))
+        if post.replies:
+             story.append(Paragraph(f"<i>Replies: {len(post.replies)}</i>", styles['Normal']))
+        story.append(Spacer(1, 12))
+
+    doc.build(story)
+    buffer.seek(0)
+    
+    headers = {
+        'Content-Disposition': f'attachment; filename="report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+    }
+    return Response(content=buffer.getvalue(), media_type="application/pdf", headers=headers)
 
 
 # ============== Static Files ==============

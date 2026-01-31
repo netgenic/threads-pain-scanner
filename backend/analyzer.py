@@ -45,8 +45,15 @@ class PostAnalyzer:
         # Remove duplicates by text similarity
         unique_posts = self._deduplicate(valid_posts)
         
-        # Extract text for analysis
-        texts = [p.text for p in unique_posts]
+        # Extract text for analysis (including replies)
+        texts = []
+        for p in unique_posts:
+            # Combine post text with replies
+            full_text = f"Post: {p.text}"
+            if p.replies:
+                comments_text = "\n".join([f"- {r.text}" for r in p.replies])
+                full_text += f"\n\nComments:\n{comments_text}"
+            texts.append(full_text)
         
         # Run LLM analysis
         analysis = await self.ollama.analyze_posts(texts, focus)

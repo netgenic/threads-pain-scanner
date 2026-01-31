@@ -90,12 +90,68 @@ class ThreadsClient:
                     is_reply=item.get("is_reply", False),
                 ))
             
+            # Fetch replies for top posts to improve analysis context
+            # We limit to top 5 to avoid rate limits
+            for i, post in enumerate(posts[:5]):
+                if post.has_replies:
+                    try:
+                        replies = await self.get_post_conversation(post.id)
+                        post.replies = replies
+                    except Exception as e:
+                        print(f"Failed to fetch replies for {post.id}: {e}")
+
             return posts
             
         except httpx.HTTPError as e:
             print(f"Threads API error: {e}")
             return []
     
+    async def get_post_conversation(self, post_id: str) -> list[ThreadsPost]:
+        """
+        Fetch conversation (replies) for a post.
+        Note: The 'conversation' endpoint retrieves the entire thread.
+        We will filter for direct replies or return relevant parts.
+        Actually, API provides /conversation endpoint which returns a list of data.
+        """
+        if not self.is_configured:
+            return []
+
+        params = {
+            "fields": "id,text,username,timestamp,media_type,permalink,is_reply",
+            "access_token": self.access_token,
+            "reverse": "true" 
+        }
+
+        try:
+            response = await self.client.get(
+                f"{THREADS_API_BASE}/{post_id}/conversation",
+                params=params
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            replies = []
+            for item in data.get("data", []):
+                # Skip the post itself if returned
+                if item["id"] == post_id:
+                    continue
+                    
+                replies.append(ThreadsPost(
+                    id=item["id"],
+                    text=item.get("text", ""),
+                    username=item.get("username", "unknown"),
+                    timestamp=datetime.fromisoformat(item["timestamp"].replace("+0000", "+00:00")),
+                    permalink=item.get("permalink", ""),
+                    media_type=item.get("media_type", "TEXT"),
+                    is_reply=True
+                ))
+            
+            return replies
+            
+        except httpx.HTTPError as e:
+            print(f"Error fetching conversation for {post_id}: {e}")
+            return []
+
     def _get_demo_posts(self, query: str) -> list[ThreadsPost]:
         """Return demo posts for testing without API access."""
         demo_data = [
