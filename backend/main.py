@@ -1,12 +1,12 @@
 """FastAPI server for Threads Research Tool."""
 
 import os
-import json
+import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -17,44 +17,72 @@ from models import (
     HealthResponse, ThreadsPost, AnalysisResult
 )
 from threads_client import ThreadsClient
-from ollama_client import OllamaClient
+from llm import get_llm_provider, LLMProvider
 from analyzer import PostAnalyzer
 
 load_dotenv()
 
-# Globals
-threads_client: ThreadsClient = None
-ollama_client: OllamaClient = None
-analyzer: PostAnalyzer = None
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
+
+# ============== Dependencies ==============
+
+_threads_client: ThreadsClient = None
+_llm_provider: LLMProvider = None
+_analyzer: PostAnalyzer = None
+
+
+def get_threads_client() -> ThreadsClient:
+    """Dependency: Get ThreadsClient instance."""
+    return _threads_client
+
+
+def get_analyzer() -> PostAnalyzer:
+    """Dependency: Get PostAnalyzer instance."""
+    return _analyzer
+
+
+def get_llm() -> LLMProvider:
+    """Dependency: Get LLM provider instance."""
+    return _llm_provider
+
+
+# ============== Lifespan ==============
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    global threads_client, ollama_client, analyzer
+    global _threads_client, _llm_provider, _analyzer
     
     # Startup
-    threads_client = ThreadsClient()
-    ollama_client = OllamaClient()
-    analyzer = PostAnalyzer()
+    logger.info("🚀 Starting Threads Research Tool...")
     
-    print("🚀 Threads Research Tool started!")
-    print(f"   Threads API: {'✅ Configured' if threads_client.is_configured else '⚠️ Demo mode'}")
+    _threads_client = ThreadsClient()
+    _llm_provider = get_llm_provider()
+    _analyzer = PostAnalyzer(llm_provider=_llm_provider)
     
-    ollama_ok = await ollama_client.is_available()
-    print(f"   Ollama: {'✅ Available' if ollama_ok else '❌ Not available'}")
+    logger.info(f"   Threads API: {'✅ Configured' if _threads_client.is_configured else '⚠️ Demo mode'}")
+    
+    llm_ok = await _llm_provider.is_available()
+    logger.info(f"   LLM ({_llm_provider.name}): {'✅ Available' if llm_ok else '❌ Not available'}")
     
     yield
     
     # Shutdown
-    await threads_client.close()
-    print("👋 Shutting down...")
+    await _threads_client.close()
+    logger.info("👋 Shutting down...")
 
 
 app = FastAPI(
     title="Threads Research Tool",
     description="Search and analyze Threads posts to find user pains and app ideas",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -73,20 +101,26 @@ app.add_middleware(
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     """Check system health."""
-    ollama_ok = await ollama_client.is_available()
+    llm_ok = await _llm_provider.is_available()
     return HealthResponse(
         status="ok",
-        ollama_available=ollama_ok,
-        threads_api_configured=threads_client.is_configured
+        ollama_available=llm_ok,  # Legacy field name for frontend compatibility
+        threads_api_configured=_threads_client.is_configured
     )
 
 
 @app.post("/api/search", response_model=SearchResponse)
-async def search_threads(request: SearchRequest):
+async def search_threads(
+    request: SearchRequest,
+    threads: ThreadsClient = Depends(get_threads_client),
+    analyzer: PostAnalyzer = Depends(get_analyzer)
+):
     """Search Threads by keywords and analyze results."""
     try:
+        logger.info(f"Searching for: '{request.keywords}'")
+        
         # Search posts
-        posts = await threads_client.search(
+        posts = await threads.search(
             query=request.keywords,
             search_type=request.search_type,
             media_type=request.media_type,
@@ -98,20 +132,26 @@ async def search_threads(request: SearchRequest):
         # Analyze with LLM
         result = await analyzer.analyze(posts, request.keywords)
         
+        logger.info(f"Search completed: {result.total_posts} posts, {len(result.analysis.pains) if result.analysis else 0} pains")
         return result
         
     except Exception as e:
+        logger.error(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/analyze")
-async def analyze_posts(request: AnalyzeRequest):
+async def analyze_posts(
+    request: AnalyzeRequest,
+    llm: LLMProvider = Depends(get_llm)
+):
     """Analyze provided posts."""
     try:
         texts = [p.text for p in request.posts]
-        analysis = await ollama_client.analyze_posts(texts, request.focus)
+        analysis = await llm.analyze_posts(texts, request.focus)
         return analysis
     except Exception as e:
+        logger.error(f"Analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -250,6 +290,16 @@ async def serve_js():
     raise HTTPException(status_code=404)
 
 
+# Serve JS modules
+@app.get("/js/{filename}")
+async def serve_js_module(filename: str):
+    """Serve JavaScript modules."""
+    js_file = frontend_path / "js" / filename
+    if js_file.exists():
+        return FileResponse(js_file, media_type="application/javascript")
+    raise HTTPException(status_code=404)
+
+
 # ============== Run ==============
 
 if __name__ == "__main__":
@@ -258,5 +308,5 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8000))
     
-    print(f"Starting server at http://localhost:{port}")
+    logger.info(f"Starting server at http://localhost:{port}")
     uvicorn.run(app, host=host, port=port)

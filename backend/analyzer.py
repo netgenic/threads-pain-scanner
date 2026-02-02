@@ -1,15 +1,26 @@
 """Post analyzer - combines Threads data with LLM analysis."""
 
+import logging
 from typing import Optional
+
 from models import ThreadsPost, AnalysisResult, SearchResponse
-from ollama_client import OllamaClient
+from llm import LLMProvider, get_llm_provider
+
+logger = logging.getLogger(__name__)
 
 
 class PostAnalyzer:
     """Analyzes Threads posts using LLM."""
     
-    def __init__(self):
-        self.ollama = OllamaClient()
+    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+        """
+        Initialize analyzer with LLM provider.
+        
+        Args:
+            llm_provider: LLM provider instance. If None, creates from config.
+        """
+        self.llm = llm_provider or get_llm_provider()
+        logger.info(f"PostAnalyzer initialized with {self.llm.name}")
     
     async def analyze(
         self, 
@@ -29,6 +40,7 @@ class PostAnalyzer:
             SearchResponse with posts and analysis
         """
         if not posts:
+            logger.info("No posts to analyze")
             return SearchResponse(
                 posts=[],
                 analysis=None,
@@ -44,6 +56,7 @@ class PostAnalyzer:
         
         # Remove duplicates by text similarity
         unique_posts = self._deduplicate(valid_posts)
+        logger.info(f"Filtered {len(posts)} posts to {len(unique_posts)} unique posts")
         
         # Extract text for analysis (including replies)
         texts = []
@@ -56,7 +69,8 @@ class PostAnalyzer:
             texts.append(full_text)
         
         # Run LLM analysis
-        analysis = await self.ollama.analyze_posts(texts, focus)
+        logger.info(f"Running LLM analysis with {self.llm.name}")
+        analysis = await self.llm.analyze_posts(texts, focus)
         
         return SearchResponse(
             posts=unique_posts,
@@ -100,8 +114,9 @@ class PostAnalyzer:
         for i in range(0, len(posts), batch_size):
             batch = posts[i:i + batch_size]
             texts = [p.text for p in batch]
-            result = await self.ollama.analyze_posts(texts)
+            result = await self.llm.analyze_posts(texts)
             results.append(result)
+            logger.debug(f"Batch {i // batch_size + 1} analyzed")
         
         return results
     

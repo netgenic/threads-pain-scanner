@@ -120,9 +120,9 @@
                     <div class="posts-header">
                         <h3>📝 Найденные посты</h3>
                         <div class="export-buttons">
-                            <button class="btn btn-small" onclick="exportResults('json')">📥 JSON</button>
-                            <button class="btn btn-small" onclick="exportResults('csv')">📥 CSV</button>
-                            <button class="btn btn-small" onclick="exportResults('pdf')">📥 PDF</button>
+                            <button class="btn btn-small" data-export="json">📥 JSON</button>
+                            <button class="btn btn-small" data-export="csv">📥 CSV</button>
+                            <button class="btn btn-small" data-export="pdf">📥 PDF</button>
                         </div>
                     </div>
                     <div id="posts-list" class="posts-list"></div>
@@ -139,11 +139,11 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Threads Pain Scanner • Powered by Ollama + Qwen 2.5</p>
+            <p>Threads Pain Scanner • Multi-LLM Support (Ollama, OpenAI, Claude, Grok)</p>
         </footer>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 
 </html>

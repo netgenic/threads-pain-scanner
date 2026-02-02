@@ -1,5 +1,6 @@
 """Threads API Client for keyword search."""
 
+import logging
 import httpx
 from datetime import datetime
 from typing import Optional
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 from models import ThreadsPost, SearchType, MediaType
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 THREADS_API_BASE = "https://graph.threads.net/v1.0"
 
@@ -70,12 +73,19 @@ class ThreadsClient:
             params["until"] = str(int(until.timestamp()))
         
         try:
+            logger.info(f"Searching Threads API for: {query}")
             response = await self.client.get(
                 f"{THREADS_API_BASE}/keyword_search",
                 params=params
             )
-            response.raise_for_status()
+            
+            # Log full response for debugging
+            if response.status_code != 200:
+                logger.error(f"Threads API error {response.status_code}: {response.text}")
+                return []
+            
             data = response.json()
+            logger.info(f"Threads API returned {len(data.get('data', []))} posts")
             
             posts = []
             for item in data.get("data", []):
@@ -98,12 +108,12 @@ class ThreadsClient:
                         replies = await self.get_post_conversation(post.id)
                         post.replies = replies
                     except Exception as e:
-                        print(f"Failed to fetch replies for {post.id}: {e}")
+                        logger.warning(f"Failed to fetch replies for {post.id}: {e}")
 
             return posts
             
         except httpx.HTTPError as e:
-            print(f"Threads API error: {e}")
+            logger.error(f"Threads API HTTP error: {e}")
             return []
     
     async def get_post_conversation(self, post_id: str) -> list[ThreadsPost]:

@@ -1,0 +1,12 @@
+pages:
+  stage: deploy
+  script:
+    - mkdir -p public
+    - cp docs/privacy.html public/privacy.html
+    - cp docs/terms.html public/terms.html 2>/dev/null || echo "terms.html not found, skipping"
+    - echo '<meta http-equiv="refresh" content="0; url=privacy.html">' > public/index.html
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
