@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Callback - Threads Pain Scanner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .code-box {
+            background: #0d0d1a;
+            border: 1px solid #6366f1;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #6366f1;
+        }
+
+        .success {
+            color: #22c55e;
+        }
+
+        .error {
+            color: #ef4444;
+        }
+
+        .instructions {
+            text-align: left;
+            background: rgba(99, 102, 241, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 10px 0;
+        }
+
+        code {
+            background: #0d0d1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        #status {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔐 Threads OAuth</h1>
+
+        <div id="content">
+            <p>Обработка авторизации...</p>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const error = params.get('error');
+        const errorDesc = params.get('error_description');
+
+        const content = document.getElementById('content');
+
+        if (error) {
+            content.innerHTML = `
+                <h2 class="error">❌ Ошибка авторизации</h2>
+                <p><strong>Error:</strong> ${error}</p>
+                <p><strong>Description:</strong> ${errorDesc || 'Unknown error'}</p>
+                <a href="/" class="btn">← Назад</a>
+            `;
+        } else if (code) {
+            content.innerHTML = `
+                <h2 class="success">✅ Код авторизации получен!</h2>
+                <p>Скопируй этот код и вставь в терминал:</p>
+                <div class="code-box" id="code-box">${code}</div>
+                <button class="btn" onclick="copyCode()">📋 Скопировать код</button>
+                <div id="status"></div>
+                
+                <div class="instructions">
+                    <h3>📋 Инструкция:</h3>
+                    <ol>
+                        <li>Нажми <strong>"Скопировать код"</strong></li>
+                        <li>Открой терминал в папке <code>backend</code></li>
+                        <li>Выполни команду:
+                            <div class="code-box">python -c "import asyncio; from token_manager import token_manager; asyncio.run(token_manager.exchange_code('${code}'))"</div>
+                        </li>
+                        <li>Или просто вставь код когда попросят</li>
+                    </ol>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `
+                <h2>⚠️ Нет данных авторизации</h2>
+                <p>Эта страница должна открываться после авторизации в Threads.</p>
+                <a href="/" class="btn">← На главную</a>
+            `;
+        }
+
+        function copyCode() {
+            navigator.clipboard.writeText(code).then(() => {
+                document.getElementById('status').innerHTML = '<p class="success">✓ Код скопирован!</p>';
+            });
+        }
+    </script>
+</body>
+
+</html>
